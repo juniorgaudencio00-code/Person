@@ -54,14 +54,11 @@ Resposta:
 
 Exemplo:
 ```bash
-curl -k https://SEU_IP/exec \
+curl http://SEU_IP/exec \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"cmd":"uname -a && uptime"}'
 ```
-
-> `-k` aceita o certificado auto-assinado. Para fixar (pin) o certificado em vez
-> de desabilitar a verificação, use `--cacert` com o `cert.pem` do servidor.
 
 ## Segurança
 

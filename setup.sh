@@ -49,22 +49,19 @@ FINGERPRINT="$(openssl x509 -in "$DIR/cert.pem" -noout -fingerprint -sha256 | cu
 echo "==> Escrevendo unidade systemd"
 cat > "$SERVICE" <<EOF
 [Unit]
-Description=OCI command agent (HTTPS)
+Description=OCI command agent (HTTP)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 Environment=AGENT_TOKEN=${TOKEN}
-Environment=AGENT_PORT=443
-Environment=AGENT_CERT=${DIR}/cert.pem
-Environment=AGENT_KEY=${DIR}/key.pem
+Environment=AGENT_PORT=80
+Environment=AGENT_TLS=0
 Environment=AGENT_CMD_TIMEOUT=120
 ExecStart=/usr/bin/python3 ${APP}/oci_agent.py
 Restart=on-failure
 RestartSec=3
-# Roda como root para permitir controle total do servidor.
-# Para limitar o alcance, troque por um usuario dedicado e ajuste sudo.
 User=root
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 

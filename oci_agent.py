@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-oci_agent — agente HTTPS minimo para executar comandos no servidor OCI.
+oci_agent — agente HTTP/HTTPS para executar comandos no servidor OCI.
 
-Expoe um unico endpoint generico (POST /exec) protegido por token Bearer e TLS.
+Expoe um unico endpoint generico (POST /exec) protegido por token Bearer.
 Sem dependencias externas: usa apenas a biblioteca padrao do Python 3.
 
 Variaveis de ambiente:
   AGENT_TOKEN        token Bearer obrigatorio (>= 16 chars)
-  AGENT_PORT         porta de escuta (padrao: 443)
+  AGENT_PORT         porta de escuta (padrao: 80)
+  AGENT_TLS          habilita TLS se definido como "1" (requer CERT e KEY)
   AGENT_CERT         caminho do certificado TLS (padrao: /etc/oci-agent/cert.pem)
   AGENT_KEY          caminho da chave TLS    (padrao: /etc/oci-agent/key.pem)
   AGENT_CMD_TIMEOUT  timeout por comando, em segundos (padrao: 120)
@@ -20,7 +21,8 @@ import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TOKEN = os.environ.get("AGENT_TOKEN", "")
-PORT = int(os.environ.get("AGENT_PORT", "443"))
+PORT = int(os.environ.get("AGENT_PORT", "80"))
+TLS = os.environ.get("AGENT_TLS", "0") == "1"
 CERT = os.environ.get("AGENT_CERT", "/etc/oci-agent/cert.pem")
 KEY = os.environ.get("AGENT_KEY", "/etc/oci-agent/key.pem")
 CMD_TIMEOUT = int(os.environ.get("AGENT_CMD_TIMEOUT", "120"))
@@ -83,18 +85,21 @@ class Handler(BaseHTTPRequestHandler):
             self._json(504, {"error": "command timed out"})
 
     def log_message(self, fmt, *args) -> None:
-        # Vai para o journald quando rodando como servico systemd.
         print("%s - %s" % (self.address_string(), fmt % args), flush=True)
 
 
 def main() -> None:
     if not TOKEN or len(TOKEN) < 16:
         raise SystemExit("AGENT_TOKEN deve estar definido com pelo menos 16 caracteres")
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ctx.load_cert_chain(CERT, KEY)
     httpd = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
-    print(f"oci-agent escutando em 0.0.0.0:{PORT}", flush=True)
+    if TLS:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(CERT, KEY)
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+        proto = "HTTPS"
+    else:
+        proto = "HTTP"
+    print(f"oci-agent escutando em 0.0.0.0:{PORT} ({proto})", flush=True)
     httpd.serve_forever()
 
 
